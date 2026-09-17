@@ -229,7 +229,43 @@
     <img id="modalImg" src="" alt="Foto Aktivitas">
   </div>
 
+  <!-- Input Logo Dinamis di UI Header -->
+<div class="form-group" style="margin-top:10px;">
+  <label for="logoInput">Upload Logo Toko/Perusahaan (.png)</label>
+  <input type="file" id="logoInput" accept="image/*" class="form-control">
+</div>
+
 <script>
+
+  // URL Web App dari Google Apps Script langkah di atas
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxy1ei1Ohp7nf0u09cTvgtODuTrYVaDp_4X4wljhaxhc9ca3q-OQkZUocZpVd3othxt/exec";
+
+async function uploadToGoogleDrive(logItem) {
+  // Olah gambar ber-watermark terlebih dahulu
+  const watermarkedBase64 = await composeWatermark(logItem);
+
+  const payload = {
+    fileName: `LOG_${logItem.type.replace(/\s+/g, '_')}_${Date.now()}.jpg`,
+    mimeType: "image/jpeg",
+    fileData: watermarkedBase64
+  };
+
+  try {
+    // Kirim file ke Google Drive via GAS
+    const response = await fetch(GAS_WEB_APP_URL, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    
+    const resData = await response.json();
+    if(resData.result === "success") {
+      logItem.driveUrl = resData.fileUrl; // Simpan link Drive ke data log
+      console.log("Berhasil terunggah ke Drive:", resData.fileUrl);
+    }
+  } catch (err) {
+    console.error("Gagal upload ke Drive, tersimpan di lokal HP terlebih dahulu:", err);
+  }
+}
   // State Application
   const video = document.getElementById('camera');
   const canvas = document.getElementById('canvas');
@@ -468,6 +504,28 @@
   });
 
   renderGallery();
+
+  let customLogoImg = null;
+
+// Handler Input Gambar Logo
+document.getElementById('logoInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const img = new Image();
+      img.onload = () => { customLogoImg = img; alert('Logo berhasil dimuat!'); };
+      img.src = evt.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+});
+
+// Dalam fungsi composeWatermark(), tambahkan gambar logo jika ada
+if (customLogoImg) {
+  // Tempel logo di pojok kanan atas watermark bar
+  cx.drawImage(customLogoImg, c.width - 100, c.height - 110, 80, 80);
+}
 </script>
 </body>
 </html>
