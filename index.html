@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Timestamp Activity & Attendance Pro</title>
+<style>
+  :root{
+    --bg:#0b0c16;
+    --surface:#151729;
+    --surface-2:#1d2038;
+    --border:#2b2e4a;
+    --accent:#ff5d73;
+    --accent-soft:rgba(255,93,115,.16);
+    --teal:#4ecdc4;
+    --amber:#ffb454;
+    --text:#eef0fb;
+    --text-muted:#8d90ac;
+    --radius-lg:20px;
+    --radius-md:14px;
+    --radius-sm:9px;
+    --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:radial-gradient(circle at 20% -10%, #1a1d3a 0%, var(--bg) 55%);
+    color:var(--text);
+    font-family:var(--font-ui);
+    -webkit-tap-highlight-color:transparent;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .app{max-width:640px;margin:0 auto;padding:18px 16px 40px;}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 16px;}
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand-mark{
+    width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(135deg, var(--accent), #ff8a65);
+    font-size:20px;flex-shrink:0;
+  }
+  .brand h1{font-size:18px;margin:0;font-weight:700;}
+  .brand .tagline{margin:2px 0 0;font-size:12px;color:var(--text-muted);}
+
+  /* Form Activity UI */
+  .activity-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius-lg);
+    padding:16px;
+    margin-bottom:16px;
+  }
+  .form-group{margin-bottom:12px;}
+  .form-group label{display:block;font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:600;}
+  .form-control{
+    width:100%;background:var(--surface-2);border:1px solid var(--border);
+    color:var(--text);padding:10px 12px;border-radius:var(--radius-sm);font-size:13.5px;
+    outline:none;
+  }
+  .form-control:focus{border-color:var(--accent);}
+  
+  .quick-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .tag-btn{
+    background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);
+    padding:5px 10px;border-radius:20px;font-size:11.5px;cursor:pointer;
+  }
+  .tag-btn:hover, .tag-btn.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);}
+
+  /* Camera Section */
+  .camera-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius-lg);
+    padding:12px 12px 24px;
+    position:relative;
+  }
+  .camera-wrap{
+    position:relative;border-radius:var(--radius-md);overflow:hidden;
+    aspect-ratio:3/4;background:#000;
+  }
+  #camera{width:100%;height:100%;object-fit:cover;display:block;}
+
+  .cam-tool{
+    position:absolute;top:10px;width:38px;height:38px;border-radius:50%;
+    background:rgba(10,11,20,.55);backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,.12);
+    display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;cursor:pointer;
+  }
+  #flipCamBtn{right:10px;}
+  #toggleCamBtn{right:56px;}
+
+  .live-overlay{
+    position:absolute;left:10px;right:10px;bottom:10px;
+    background:rgba(8,9,18,.65);backdrop-filter:blur(6px);
+    border-radius:var(--radius-sm);padding:8px 12px;
+    display:flex;flex-direction:column;gap:2px;
+  }
+  #liveActivity{font-size:13px;font-weight:700;color:var(--teal);}
+  #liveTime{font-family:var(--font-mono);font-size:12px;color:#fff;}
+  #liveLoc{font-size:11px;color:rgba(255,255,255,.75);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  .shutter{
+    display:block;margin:-28px auto 0;width:60px;height:60px;border-radius:50%;
+    background:var(--surface);border:3px solid var(--accent);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;
+  }
+  .shutter-inner{width:44px;height:44px;border-radius:50%;background:var(--accent);transition:transform .1s;}
+  .shutter:active .shutter-inner{transform:scale(.88);}
+
+  .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px;}
+  .btn{
+    border-radius:var(--radius-sm);padding:10px 6px;font-size:12px;font-weight:600;
+    cursor:pointer;color:var(--text);background:var(--surface-2);border:1px solid var(--border);
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+  }
+
+  .gallery-section{margin-top:24px;}
+  .gallery-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .gallery-head h2{font-size:15px;margin:0;font-weight:700;}
+  .gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+  .gallery-item{
+    position:relative;border-radius:var(--radius-sm);overflow:hidden;aspect-ratio:1/1;
+    border:1px solid var(--border);cursor:pointer;background:var(--surface);
+  }
+  .gallery-item img{width:100%;height:100%;object-fit:cover;display:block;}
+  .gallery-item .type-badge{
+    position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,.7);color:var(--teal);
+    font-size:9px;padding:2px 5px;border-radius:4px;font-weight:600;
+  }
+  .gallery-item .del{
+    position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;
+    background:rgba(0,0,0,.6);color:#fff;border:none;font-size:11px;cursor:pointer;
+  }
+  .gallery-empty{
+    grid-column:1/-1;text-align:center;padding:24px 10px;color:var(--text-muted);
+    font-size:12.5px;border:1px dashed var(--border);border-radius:var(--radius-md);
+  }
+
+  .modal{
+    display:none;position:fixed;inset:0;background:rgba(4,5,10,.9);z-index:50;
+    align-items:center;justify-content:center;padding:20px;
+  }
+  .modal.open{display:flex;}
+  .modal img{max-width:100%;max-height:80vh;border-radius:12px;}
+</style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">📋</div>
+        <div>
+          <h1>Logbook &amp; Absensi</h1>
+          <p class="tagline">Dokumentasi Rutinitas Kerja Field</p>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <!-- Form Input Aktivitas -->
+      <section class="activity-card">
+        <div class="form-group">
+          <label for="actType">Kategori Log / Absen</label>
+          <select id="actType" class="form-control">
+            <option value="Absen Masuk">🟢 Absen Masuk</option>
+            <option value="Aktivitas Rutin" selected>🔵 Aktivitas Rutin</option>
+            <option value="Tugas Luar / Meeting">🟡 Tugas Luar / Meeting</option>
+            <option value="Absen Pulang">🔴 Absen Pulang</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Pilihan Cepat Aktivitas Rutin</label>
+          <div class="quick-tags">
+            <button class="tag-btn" onclick="setQuickTag('Membersihkan Area Sales')">🧹 Area Sales</button>
+            <button class="tag-btn" onclick="setQuickTag('Pemeriksaan Expired Date')">🏷️ Cek Expired</button>
+            <button class="tag-btn" onclick="setQuickTag('Memotong & Preparation Buah')">🍎 Potong Buah</button>
+            <button class="tag-btn" onclick="setQuickTag('Briefing Tim Pagi')">🗣️ Briefing</button>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0">
+          <label for="actNote">Catatan Detail Kegiatan</label>
+          <input type="text" id="actNote" class="form-control" placeholder="Contoh: Memotong buah naga & melon...">
+        </div>
+      </section>
+
+      <!-- Kamera Preview -->
+      <section class="camera-card">
+        <div class="camera-wrap">
+          <video id="camera" autoplay playsinline muted></video>
+
+          <div class="cam-tool" id="toggleCamBtn" title="On/Off Kamera">📷</div>
+          <div class="cam-tool" id="flipCamBtn" title="Putar Kamera">🔄</div>
+
+          <div class="live-overlay">
+            <span id="liveActivity">🔵 Aktivitas Rutin</span>
+            <span id="liveTime">Memuat waktu…</span>
+            <span id="liveLoc">Mendapatkan lokasi…</span>
+          </div>
+        </div>
+
+        <button class="shutter" id="shutterBtn" aria-label="Ambil Foto Kegiatan">
+          <span class="shutter-inner"></span>
+        </button>
+      </section>
+
+      <!-- Panel Ekspor -->
+      <section class="actions">
+        <button class="btn" id="refreshLocBtn"><span>🔄</span>GPS Update</button>
+        <button class="btn" id="pdfBtn"><span>📄</span>Cetak PDF</button>
+        <button class="btn" id="excelBtn"><span>📊</span>Ekspor Excel</button>
+      </section>
+
+      <!-- Riwayat Logbook Hari Ini -->
+      <section class="gallery-section">
+        <div class="gallery-head">
+          <h2>Log Activity Hari Ini (<span id="historyCount">0</span>)</h2>
+          <button style="background:none;border:none;color:var(--accent);font-size:12px;cursor:pointer" id="clearBtn">Hapus Semua</button>
+        </div>
+        <div class="gallery" id="gallery"></div>
+      </section>
+    </main>
+  </div>
+
+  <canvas id="canvas" style="display:none;"></canvas>
+  <div class="modal" id="modal">
+    <img id="modalImg" src="" alt="Foto Aktivitas">
+  </div>
+
+<script>
+  // State Application
+  const video = document.getElementById('camera');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  let currentStream = null;
+  let isCameraOn = true;
+  let usingFrontCamera = false;
+  let currentPos = null;
+  let currentAddress = 'Mendapatkan lokasi…';
+
+  // --- KAMERA CONTROL ---
+  function startCamera(facing){
+    if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+    navigator.mediaDevices.getUserMedia({ 
+      video: { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 720 } }, 
+      audio: false 
+    })
+    .then(stream => { 
+      currentStream = stream; 
+      video.srcObject = stream; 
+      isCameraOn = true;
+    })
+    .catch(err => alert('Akses kamera gagal: ' + err.message));
+  }
+
+  function stopCamera(){
+    if (currentStream) {
+      currentStream.getTracks().forEach(t => t.stop());
+      video.srcObject = null;
+      isCameraOn = false;
+    }
+  }
+
+  startCamera('environment');
+
+  document.getElementById('flipCamBtn').addEventListener('click', () => {
+    usingFrontCamera = !usingFrontCamera;
+    startCamera(usingFrontCamera ? 'user' : 'environment');
+  });
+
+  document.getElementById('toggleCamBtn').addEventListener('click', () => {
+    if(isCameraOn) { stopCamera(); alert('Kamera dimatikan untuk hemat baterai.'); }
+    else { startCamera(usingFrontCamera ? 'user' : 'environment'); }
+  });
+
+  // --- FORM LOGIC ---
+  function setQuickTag(text){
+    document.getElementById('actNote').value = text;
+    updateLiveOverlay();
+  }
+
+  function updateLiveOverlay(){
+    const type = document.getElementById('actType').value;
+    const note = document.getElementById('actNote').value;
+    document.getElementById('liveActivity').textContent = `${type} ${note ? '- ' + note : ''}`;
+  }
+  document.getElementById('actType').addEventListener('change', updateLiveOverlay);
+  document.getElementById('actNote').addEventListener('input', updateLiveOverlay);
+
+  // --- WAKTU & GPS ---
+  function updateClock(){
+    const s = new Date().toLocaleString('id-ID');
+    document.getElementById('liveTime').textContent = s;
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  function fetchLocation(){
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(pos => {
+      const lat = pos.coords.latitude.toFixed(6);
+      const lon = pos.coords.longitude.toFixed(6);
+      currentPos = { lat, lon, accuracy: Math.round(pos.coords.accuracy) };
+      
+      // Reverse Geocoding Sederhana (OpenStreetMap)
+      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18`, { headers:{'Accept-Language':'id'} })
+        .then(res => res.json())
+        .then(data => {
+          currentAddress = data.display_name || `${lat}, ${lon}`;
+          document.getElementById('liveLoc').textContent = currentAddress;
+        })
+        .catch(() => {
+          currentAddress = `Lat: ${lat}, Lon: ${lon}`;
+          document.getElementById('liveLoc').textContent = currentAddress;
+        });
+    }, null, { enableHighAccuracy: true });
+  }
+  fetchLocation();
+  document.getElementById('refreshLocBtn').addEventListener('click', fetchLocation);
+
+  // --- STORAGE ---
+  function loadHistory(){ return JSON.parse(localStorage.getItem('activityLogs') || '[]'); }
+  function saveHistory(data){ localStorage.setItem('activityLogs', JSON.stringify(data)); }
+
+  // --- WATERMARK & CAPTURE ---
+  function composeWatermark(data){
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = img.width; c.height = img.height;
+        const cx = c.getContext('2d');
+        cx.drawImage(img, 0, 0);
+
+        const barH = 130;
+        cx.fillStyle = 'rgba(0,0,0,0.65)';
+        cx.fillRect(0, c.height - barH, c.width, barH);
+
+        cx.fillStyle = '#4ecdc4';
+        cx.font = 'bold 22px Arial';
+        cx.fillText(`[${data.type.toUpperCase()}] ${data.note || ''}`, 16, c.height - barH + 28);
+
+        cx.fillStyle = '#fff';
+        cx.font = '15px Arial';
+        cx.fillText(`Waktu: ${new Date(data.timestamp).toLocaleString('id-ID')}`, 16, c.height - barH + 58);
+        cx.fillText(`Lokasi: ${data.location}`, 16, c.height - barH + 82);
+        cx.fillText(`Koordinat: ${data.coords ? `${data.coords.lat}, ${data.coords.lon}` : '-'}`, 16, c.height - barH + 104);
+
+        resolve(c.toDataURL('image/jpeg', 0.85));
+      };
+      img.src = data.image;
+    });
+  }
+
+  document.getElementById('shutterBtn').addEventListener('click', () => {
+    if (!isCameraOn || !video.videoWidth) { alert('Nyalakan kamera terlebih dahulu!'); return; }
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+
+    const logItem = {
+      timestamp: new Date().toISOString(),
+      type: document.getElementById('actType').value,
+      note: document.getElementById('actNote').value,
+      location: currentAddress,
+      coords: currentPos,
+      image: canvas.toDataURL('image/jpeg', 0.85)
+    };
+
+    const history = loadHistory();
+    history.push(logItem);
+    saveHistory(history);
+    renderGallery();
+    
+    // Clear input
+    document.getElementById('actNote').value = '';
+    updateLiveOverlay();
+  });
+
+  // --- RENDER GALLERY ---
+  function renderGallery(){
+    const history = loadHistory();
+    document.getElementById('historyCount').textContent = history.length;
+    const gallery = document.getElementById('gallery');
+    gallery.innerHTML = '';
+
+    if (history.length === 0){
+      gallery.innerHTML = '<div class="gallery-empty">Belum ada aktivitas tercatat hari ini.</div>';
+      return;
+    }
+
+    history.slice().reverse().forEach((data, revIdx) => {
+      const idx = history.length - 1 - revIdx;
+      const item = document.createElement('div');
+      item.className = 'gallery-item';
+      item.innerHTML = `
+        <img src="${data.image}">
+        <span class="type-badge">${data.type}</span>
+        <button class="del" onclick="deleteLog(${idx})">✕</button>
+      `;
+      item.querySelector('img').addEventListener('click', async () => {
+        const wmSrc = await composeWatermark(data);
+        document.getElementById('modalImg').src = wmSrc;
+        document.getElementById('modal').classList.add('open');
+      });
+      gallery.appendChild(item);
+    });
+  }
+
+  window.deleteLog = function(idx){
+    const history = loadHistory();
+    history.splice(idx, 1);
+    saveHistory(history);
+    renderGallery();
+  };
+
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    if (confirm('Hapus seluruh log aktivitas hari ini?')){ saveHistory([]); renderGallery(); }
+  });
+  document.getElementById('modal').addEventListener('click', () => document.getElementById('modal').classList.remove('open'));
+
+  // --- EKSPOR DATA ---
+  document.getElementById('excelBtn').addEventListener('click', () => {
+    const history = loadHistory();
+    if (!history.length) return alert('Tidak ada log untuk diekspor!');
+
+    let csv = 'No,Tanggal,Jam,Kategori,Detail Activity,Lokasi,Latitude,Longitude\n';
+    history.forEach((d, i) => {
+      const dt = new Date(d.timestamp);
+      csv += `${i+1},${dt.toLocaleDateString('id-ID')},${dt.toLocaleTimeString('id-ID')},"${d.type}","${d.note || '-'}","${d.location.replace(/,/g,' ')}",${d.coords?.lat||''},${d.coords?.lon||''}\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `Log_Aktivitas_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+  });
+
+  document.getElementById('pdfBtn').addEventListener('click', async () => {
+    const history = loadHistory();
+    if (!history.length) return alert('Tidak ada log untuk dicetak!');
+
+    const win = window.open('', '_blank');
+    win.document.write('<html><head><title>Laporan Aktivitas Harian</title><style>body{font-family:Arial;padding:20px;} .item{border:1px solid #ccc;padding:12px;margin-bottom:12px;border-radius:8px;} img{max-width:320px;border-radius:6px;}</style></head><body>');
+    win.document.write(`<h2>Laporan Aktivitas Kerja & Absensi</h2><p>Tanggal: ${new Date().toLocaleDateString('id-ID')}</p><hr>`);
+
+    for(let i=0; i<history.length; i++){
+      const d = history[i];
+      const wm = await composeWatermark(d);
+      win.document.write(`
+        <div class="item">
+          <h3>#${i+1} [${d.type}] ${d.note || ''}</h3>
+          <img src="${wm}"/><br>
+          <small>Waktu: ${new Date(d.timestamp).toLocaleString('id-ID')}</small><br>
+          <small>Lokasi: ${d.location}</small>
+        </div>
+      `);
+    }
+    win.document.write('</body></html>');
+    win.document.close();
+    win.print();
+  });
+
+  renderGallery();
+</script>
+</body>
+</html>
