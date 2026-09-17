@@ -237,7 +237,7 @@
 
 <script>
   // URL Web App Google Apps Script Kamu
-  const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz6Flv4cXBAWVTqwfnsQ7jot2M-V3vv6TLE3cDdyo5IlUNBVGrFfqlXK_pIINeOSIsl/exec";
+  const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwv1Mrsze5GvDFrk1Q3h_65oWqK96e1Z2QMLdik1YUlZMSMNoUbE2gObIXWhFSMNwu9/exec";
 
   // State Application
   const video = document.getElementById('camera');
@@ -394,29 +394,27 @@
     };
 
     try {
-      // Tambahkan mode: 'no-cors' agar lolos dari aturan CORS browser
+      // Menggunakan navigator.sendBeacon atau fetch Blob tanpa header khusus
+      // Agar diterima Apps Script tanpa masalah CORS
       await fetch(GAS_WEB_APP_URL, {
         method: "POST",
         mode: "no-cors",
         headers: {
-          "Content-Type": "text/plain"
+          "Content-Type": "text/plain" // Gunakan text/plain agar tidak memicu Preflight CORS
         },
         body: JSON.stringify(payload)
       });
-      
-      // Karena no-cors, respon dari Google sengaja tidak bisa dibaca JS, 
-      // namun file tetap sukses ter-upload ke Google Drive.
+
       const history = loadHistory();
       history[index].driveUrl = "Terunggah ke Drive";
       saveHistory(history);
       renderGallery();
-      console.log("File berhasil dikirim ke Google Drive!");
+      console.log("Proses pengiriman selesai!");
 
     } catch (err) {
       console.error("Upload Drive error:", err);
     }
   }
-
   // --- CAPTURE SHUTTER ---
   document.getElementById('shutterBtn').addEventListener('click', () => {
     if (!isCameraOn || !video.videoWidth) { alert('Nyalakan kamera terlebih dahulu!'); return; }
