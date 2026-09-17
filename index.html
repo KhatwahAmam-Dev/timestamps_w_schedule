@@ -67,6 +67,14 @@
   }
   .tag-btn:hover, .tag-btn.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);}
 
+  /* Mode Switcher */
+  .mode-switcher{display:flex;gap:8px;margin-bottom:12px;}
+  .mode-btn{
+    flex:1;padding:8px;border-radius:var(--radius-sm);border:1px solid var(--border);
+    background:var(--surface-2);color:var(--text-muted);font-size:12px;font-weight:600;cursor:pointer;
+  }
+  .mode-btn.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);}
+
   /* Camera Section */
   .camera-card{
     background:var(--surface);
@@ -106,7 +114,7 @@
     display:flex;align-items:center;justify-content:center;cursor:pointer;
   }
   .shutter-inner{width:44px;height:44px;border-radius:50%;background:var(--accent);transition:transform .1s;}
-  .shutter:active .shutter-inner{transform:scale(.88);}
+  .shutter.recording .shutter-inner{border-radius:8px;transform:scale(.7);background:#ff3b30;}
 
   .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px;}
   .btn{
@@ -121,12 +129,16 @@
   .gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
   .gallery-item{
     position:relative;border-radius:var(--radius-sm);overflow:hidden;aspect-ratio:1/1;
-    border:1px solid var(--border);cursor:pointer;background:var(--surface);
+    border:1px solid var(--border);background:var(--surface);
   }
-  .gallery-item img{width:100%;height:100%;object-fit:cover;display:block;}
+  .gallery-item img, .gallery-item video{width:100%;height:100%;object-fit:cover;display:block;}
   .gallery-item .type-badge{
     position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,.7);color:var(--teal);
     font-size:9px;padding:2px 5px;border-radius:4px;font-weight:600;
+  }
+  .gallery-item .wa-btn{
+    position:absolute;bottom:4px;right:4px;background:#25d366;color:#fff;
+    border:none;border-radius:4px;font-size:10px;padding:2px 6px;cursor:pointer;font-weight:bold;
   }
   .gallery-item .del{
     position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;
@@ -142,7 +154,7 @@
     align-items:center;justify-content:center;padding:20px;
   }
   .modal.open{display:flex;}
-  .modal img{max-width:100%;max-height:80vh;border-radius:12px;}
+  .modal img, .modal video{max-width:100%;max-height:80vh;border-radius:12px;}
 </style>
 </head>
 <body>
@@ -182,7 +194,22 @@
 
         <div class="form-group">
           <label for="actNote">Catatan Detail Kegiatan</label>
-          <input type="text" id="actNote" class="form-control" placeholder="Contoh: Diskusi display barang...">
+          <input type="text" id="actNote" class="form-control" placeholder="Contoh: Memotong buah naga & melon...">
+        </div>
+
+        <!-- Target WhatsApp -->
+        <div class="form-group">
+          <label for="waTarget">Kirim Laporan WA ke:</label>
+          <select id="waTarget" class="form-control">
+            <option value="6281234567890">Supervisor Area (0812-3456-7890)</option>
+            <option value="6289876543210">Admin Operasional (0898-7654-3210)</option>
+            <option value="manual">-- Input Nomor Manual --</option>
+          </select>
+        </div>
+        
+        <div class="form-group" id="manualPhoneGroup" style="display:none;">
+          <label for="manualPhone">Nomor WhatsApp Manual (Awali 62):</label>
+          <input type="number" id="manualPhone" class="form-control" placeholder="62812xxxxxxxx">
         </div>
 
         <!-- Input Logo Perusahaan -->
@@ -191,6 +218,12 @@
           <input type="file" id="logoInput" accept="image/*" class="form-control">
         </div>
       </section>
+
+      <!-- Mode Capture Switcher -->
+      <div class="mode-switcher">
+        <button class="mode-btn active" id="btnModePhoto" onclick="switchMode('photo')">📸 Foto</button>
+        <button class="mode-btn" id="btnModeVideo" onclick="switchMode('video')">🎥 Video (Pendek)</button>
+      </div>
 
       <!-- Kamera Preview -->
       <section class="camera-card">
@@ -207,7 +240,7 @@
           </div>
         </div>
 
-        <button class="shutter" id="shutterBtn" aria-label="Ambil Foto Kegiatan">
+        <button class="shutter" id="shutterBtn" aria-label="Ambil Dokumen">
           <span class="shutter-inner"></span>
         </button>
       </section>
@@ -232,12 +265,12 @@
 
   <canvas id="canvas" style="display:none;"></canvas>
   <div class="modal" id="modal">
-    <img id="modalImg" src="" alt="Foto Aktivitas">
+    <div id="modalContent"></div>
   </div>
 
 <script>
-  // URL Web App Google Apps Script Kamu
-  const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwv1Mrsze5GvDFrk1Q3h_65oWqK96e1Z2QMLdik1YUlZMSMNoUbE2gObIXWhFSMNwu9/exec";
+  // URL Web App Google Apps Script
+  const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxy1ei1Ohp7nf0u09cTvgtODuTrYVaDp_4X4wljhaxhc9ca3q-OQkZUocZpVd3othxt/exec";
 
   // State Application
   const video = document.getElementById('camera');
@@ -249,6 +282,24 @@
   let currentPos = null;
   let currentAddress = 'Mendapatkan lokasi…';
   let customLogoImg = null;
+  
+  // State Mode Photo/Video
+  let captureMode = 'photo'; 
+  let mediaRecorder = null;
+  let recordedChunks = [];
+  let isRecording = false;
+
+  // --- HANDLER TARGET WA ---
+  document.getElementById('waTarget').addEventListener('change', (e) => {
+    document.getElementById('manualPhoneGroup').style.display = e.target.value === 'manual' ? 'block' : 'none';
+  });
+
+  // --- SWITCH MODE FOTO / VIDEO ---
+  function switchMode(mode) {
+    captureMode = mode;
+    document.getElementById('btnModePhoto').classList.toggle('active', mode === 'photo');
+    document.getElementById('btnModeVideo').classList.toggle('active', mode === 'video');
+  }
 
   // --- LOGO HANDLER ---
   document.getElementById('logoInput').addEventListener('change', (e) => {
@@ -257,7 +308,7 @@
       const reader = new FileReader();
       reader.onload = (evt) => {
         const img = new Image();
-        img.onload = () => { customLogoImg = img; alert('Logo berhasil dimuat untuk Watermark!'); };
+        img.onload = () => { customLogoImg = img; alert('Logo berhasil dimuat!'); };
         img.src = evt.target.result;
       };
       reader.readAsDataURL(file);
@@ -269,7 +320,7 @@
     if (currentStream) currentStream.getTracks().forEach(t => t.stop());
     navigator.mediaDevices.getUserMedia({ 
       video: { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 720 } }, 
-      audio: false 
+      audio: true // Diaktifkan untuk perekaman video
     })
     .then(stream => { 
       currentStream = stream; 
@@ -316,8 +367,7 @@
 
   // --- WAKTU & GPS ---
   function updateClock(){
-    const s = new Date().toLocaleString('id-ID');
-    document.getElementById('liveTime').textContent = s;
+    document.getElementById('liveTime').textContent = new Date().toLocaleString('id-ID');
   }
   setInterval(updateClock, 1000);
   updateClock();
@@ -348,7 +398,7 @@
   function loadHistory(){ return JSON.parse(localStorage.getItem('activityLogs') || '[]'); }
   function saveHistory(data){ localStorage.setItem('activityLogs', JSON.stringify(data)); }
 
-  // --- WATERMARK GENERATOR ---
+  // --- WATERMARK GENERATOR (FOR PHOTO) ---
   function composeWatermark(data){
     return new Promise(resolve => {
       const img = new Image();
@@ -370,38 +420,37 @@
         cx.font = '15px Arial';
         cx.fillText(`Waktu: ${new Date(data.timestamp).toLocaleString('id-ID')}`, 16, c.height - barH + 58);
         cx.fillText(`Lokasi: ${data.location}`, 16, c.height - barH + 82);
-        cx.fillText(`Koordinat: ${data.coords ? `${data.coords.lat}, ${data.coords.lon}` : '-'}`, 16, c.height - barH + 104);
+        cx.fillText(`Koordinat: ${data.coords ? `${data.coords.lat},${data.coords.lon}` : '-'}`, 16, c.height - barH + 104);
 
-        // Tempel Logo jika ada
         if (customLogoImg) {
           cx.drawImage(customLogoImg, c.width - 100, c.height - barH + 15, 80, 80);
         }
 
         resolve(c.toDataURL('image/jpeg', 0.85));
       };
-      img.src = data.image;
+      img.src = data.media;
     });
   }
 
-  // --- GOOGLE DRIVE UPLOADER ---
+  // --- GOOGLE DRIVE UPLOADER (FOTO & VIDEO) ---
   async function uploadToGoogleDrive(logItem, index) {
-    const watermarkedBase64 = await composeWatermark(logItem);
+    let fileBase64 = logItem.media;
+    
+    if (logItem.fileType === 'photo') {
+      fileBase64 = await composeWatermark(logItem);
+    }
 
     const payload = {
-      fileName: `LOG_${logItem.type.replace(/\s+/g, '_')}_${Date.now()}.jpg`,
-      mimeType: "image/jpeg",
-      fileData: watermarkedBase64
+      fileName: `LOG_${logItem.type.replace(/\s+/g, '_')}_${Date.now()}.${logItem.fileType === 'photo' ? 'jpg' : 'webm'}`,
+      mimeType: logItem.fileType === 'photo' ? "image/jpeg" : "video/webm",
+      fileData: fileBase64
     };
 
     try {
-      // Menggunakan navigator.sendBeacon atau fetch Blob tanpa header khusus
-      // Agar diterima Apps Script tanpa masalah CORS
       await fetch(GAS_WEB_APP_URL, {
         method: "POST",
         mode: "no-cors",
-        headers: {
-          "Content-Type": "text/plain" // Gunakan text/plain agar tidak memicu Preflight CORS
-        },
+        headers: { "Content-Type": "text/plain" },
         body: JSON.stringify(payload)
       });
 
@@ -409,44 +458,104 @@
       history[index].driveUrl = "Terunggah ke Drive";
       saveHistory(history);
       renderGallery();
-      console.log("Proses pengiriman selesai!");
-
+      console.log("File berhasil terkirim ke Google Drive!");
     } catch (err) {
       console.error("Upload Drive error:", err);
     }
   }
-  // --- CAPTURE SHUTTER ---
+
+  // --- SHUTTER CAPTURE HANDLER ---
   document.getElementById('shutterBtn').addEventListener('click', () => {
-    if (!isCameraOn || !video.videoWidth) { alert('Nyalakan kamera terlebih dahulu!'); return; }
+    if (!isCameraOn) return alert('Nyalakan kamera terlebih dahulu!');
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0);
+    if (captureMode === 'photo') {
+      // PROSES CAPTURE FOTO
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
 
-    const logItem = {
-      timestamp: new Date().toISOString(),
-      type: document.getElementById('actType').value,
-      note: document.getElementById('actNote').value,
-      location: currentAddress,
-      coords: currentPos,
-      image: canvas.toDataURL('image/jpeg', 0.85),
-      driveUrl: ''
-    };
+      const logItem = {
+        timestamp: new Date().toISOString(),
+        type: document.getElementById('actType').value,
+        note: document.getElementById('actNote').value,
+        location: currentAddress,
+        coords: currentPos,
+        media: canvas.toDataURL('image/jpeg', 0.85),
+        fileType: 'photo',
+        driveUrl: ''
+      };
 
+      saveAndProcessLog(logItem);
+
+    } else {
+      // PROSES REKAM VIDEO
+      if (!isRecording) {
+        recordedChunks = [];
+        mediaRecorder = new MediaRecorder(currentStream, { mimeType: 'video/webm' });
+        
+        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(recordedChunks, { type: 'video/webm' });
+          const reader = new FileReader();
+          reader.readAsDataURL(blob);
+          reader.onloadend = () => {
+            const logItem = {
+              timestamp: new Date().toISOString(),
+              type: document.getElementById('actType').value,
+              note: document.getElementById('actNote').value,
+              location: currentAddress,
+              coords: currentPos,
+              media: reader.result,
+              fileType: 'video',
+              driveUrl: ''
+            };
+            saveAndProcessLog(logItem);
+          };
+        };
+
+        mediaRecorder.start();
+        isRecording = true;
+        document.getElementById('shutterBtn').classList.add('recording');
+      } else {
+        mediaRecorder.stop();
+        isRecording = false;
+        document.getElementById('shutterBtn').classList.remove('recording');
+      }
+    }
+  });
+
+  function saveAndProcessLog(logItem) {
     const history = loadHistory();
     history.push(logItem);
     saveHistory(history);
-    const newIdx = history.length - 1;
-    
     renderGallery();
     
-    // Otomatis Upload ke Drive
-    uploadToGoogleDrive(logItem, newIdx);
+    uploadToGoogleDrive(logItem, history.length - 1);
 
-    // Reset Form Input
     document.getElementById('actNote').value = '';
     updateLiveOverlay();
-  });
+  }
+
+  // --- SHARE TO WHATSAPP ---
+  window.shareToWhatsApp = function(idx) {
+    const history = loadHistory();
+    const item = history[idx];
+
+    let phone = document.getElementById('waTarget').value;
+    if (phone === 'manual') phone = document.getElementById('manualPhone').value;
+
+    if (!phone) return alert('Pilih atau masukkan nomor WhatsApp tujuan terlebih dahulu!');
+
+    const text = `*LAPORAN AKTIVITAS FIELD*%0A` +
+      `----------------------------------%0A` +
+      `*Kategori:* ${item.type}%0A` +
+      `*Catatan:* ${item.note || '-'}%0A` +
+      `*Waktu:* ${new Date(item.timestamp).toLocaleString('id-ID')}%0A` +
+      `*Lokasi:* ${item.location}%0A` +
+      `*Status Cloud:* ${item.driveUrl || 'Tersimpan di Lokal HP'}`;
+
+    window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${text}`, '_blank');
+  };
 
   // --- RENDER GALLERY ---
   function renderGallery(){
@@ -465,19 +574,30 @@
       const item = document.createElement('div');
       item.className = 'gallery-item';
       
-      const driveIcon = data.driveUrl ? '<span style="position:absolute;top:4px;left:4px;font-size:10px;background:rgba(0,0,0,0.6);padding:2px 4px;border-radius:3px;">☁️</span>' : '';
+      const driveIcon = data.driveUrl ? '<span style="position:absolute;top:4px;left:4px;font-size:10px;background:rgba(0,0,0,0.6);padding:2px 4px;border-radius:3px;z-index:2;">☁️</span>' : '';
+      const mediaEl = data.fileType === 'photo' 
+        ? `<img src="${data.media}">` 
+        : `<video src="${data.media}"></video>`;
 
       item.innerHTML = `
-        <img src="${data.image}">
+        ${mediaEl}
         ${driveIcon}
         <span class="type-badge">${data.type}</span>
+        <button class="wa-btn" onclick="shareToWhatsApp(${idx})">WA</button>
         <button class="del" onclick="deleteLog(${idx})">✕</button>
       `;
-      item.querySelector('img').addEventListener('click', async () => {
-        const wmSrc = await composeWatermark(data);
-        document.getElementById('modalImg').src = wmSrc;
+
+      item.querySelector('img, video').addEventListener('click', async () => {
+        const modalContent = document.getElementById('modalContent');
+        if (data.fileType === 'photo') {
+          const wmSrc = await composeWatermark(data);
+          modalContent.innerHTML = `<img src="${wmSrc}">`;
+        } else {
+          modalContent.innerHTML = `<video src="${data.media}" controls autoplay></video>`;
+        }
         document.getElementById('modal').classList.add('open');
       });
+
       gallery.appendChild(item);
     });
   }
@@ -499,10 +619,10 @@
     const history = loadHistory();
     if (!history.length) return alert('Tidak ada log untuk diekspor!');
 
-    let csv = 'No,Tanggal,Jam,Kategori,Detail Activity,Lokasi,Latitude,Longitude,Link Google Drive\n';
+    let csv = 'No,Tanggal,Jam,Kategori,Detail Activity,Lokasi,Latitude,Longitude,Status Drive\n';
     history.forEach((d, i) => {
       const dt = new Date(d.timestamp);
-      csv += `${i+1},${dt.toLocaleDateString('id-ID')},${dt.toLocaleTimeString('id-ID')},"${d.type}","${d.note || '-'}","${d.location.replace(/,/g,' ')}",${d.coords?.lat||''},${d.coords?.lon||''},"${d.driveUrl || 'Belum terunggah'}"\n`;
+      csv += `${i+1},${dt.toLocaleDateString('id-ID')},${dt.toLocaleTimeString('id-ID')},"${d.type}","${d.note || '-'}","${d.location.replace(/,/g,' ')}",${d.coords?.lat||''},${d.coords?.lon||''},"${d.driveUrl || 'Proses Upload'}"\n`;
     });
 
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -517,19 +637,25 @@
     if (!history.length) return alert('Tidak ada log untuk dicetak!');
 
     const win = window.open('', '_blank');
-    win.document.write('<html><head><title>Laporan Aktivitas Harian</title><style>body{font-family:Arial;padding:20px;} .item{border:1px solid #ccc;padding:12px;margin-bottom:12px;border-radius:8px;} img{max-width:320px;border-radius:6px;}</style></head><body>');
+    win.document.write('<html><head><title>Laporan Aktivitas Harian</title><style>body{font-family:Arial;padding:20px;} .item{border:1px solid #ccc;padding:12px;margin-bottom:12px;border-radius:8px;} img,video{max-width:320px;border-radius:6px;}</style></head><body>');
     win.document.write(`<h2>Laporan Aktivitas Kerja & Absensi</h2><p>Tanggal: ${new Date().toLocaleDateString('id-ID')}</p><hr>`);
 
     for(let i=0; i<history.length; i++){
       const d = history[i];
-      const wm = await composeWatermark(d);
+      let mediaHtml = '';
+      if(d.fileType === 'photo'){
+        const wm = await composeWatermark(d);
+        mediaHtml = `<img src="${wm}"/>`;
+      } else {
+        mediaHtml = `<small>[Dokumen Video WebM]</small>`;
+      }
+
       win.document.write(`
         <div class="item">
           <h3>#${i+1} [${d.type}] ${d.note || ''}</h3>
-          <img src="${wm}"/><br>
+          ${mediaHtml}<br>
           <small>Waktu: ${new Date(d.timestamp).toLocaleString('id-ID')}</small><br>
-          <small>Lokasi: ${d.location}</small><br>
-          <small>Drive: ${d.driveUrl ? `<a href="${d.driveUrl}" target="_blank">Lihat di Cloud</a>` : '-'}</small>
+          <small>Lokasi: ${d.location}</small>
         </div>
       `);
     }
