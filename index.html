@@ -173,16 +173,22 @@
         <div class="form-group">
           <label>Pilihan Cepat Aktivitas Rutin</label>
           <div class="quick-tags">
-  <button class="tag-btn" onclick="setQuickTag('Membersihkan Area Sales', 'Aktivitas Rutin')">🧹 Area Sales</button>
-  <button class="tag-btn" onclick="setQuickTag('Pemeriksaan Expired Date', 'Aktivitas Rutin')">🏷️ Cek Expired</button>
-  <button class="tag-btn" onclick="setQuickTag('Briefing Tim Pagi', 'Aktivitas Rutin')">🗣️ Briefing</button>
-  <button class="tag-btn" onclick="setQuickTag('Meeting / Perjalanan Dinas', 'Tugas Luar / Meeting')">🚗 Tugas Luar</button>
-</div>
+            <button class="tag-btn" onclick="setQuickTag('Membersihkan Area Sales', 'Aktivitas Rutin')">🧹 Area Sales</button>
+            <button class="tag-btn" onclick="setQuickTag('Pemeriksaan Expired Date', 'Aktivitas Rutin')">🏷️ Cek Expired</button>
+            <button class="tag-btn" onclick="setQuickTag('Briefing Tim Pagi', 'Aktivitas Rutin')">🗣️ Briefing</button>
+            <button class="tag-btn" onclick="setQuickTag('Meeting / Perjalanan Dinas', 'Tugas Luar / Meeting')">🚗 Tugas Luar</button>
+          </div>
         </div>
 
-        <div class="form-group" style="margin-bottom:0">
+        <div class="form-group">
           <label for="actNote">Catatan Detail Kegiatan</label>
-          <input type="text" id="actNote" class="form-control" placeholder="Contoh: Memotong buah naga & melon...">
+          <input type="text" id="actNote" class="form-control" placeholder="Contoh: Diskusi display barang...">
+        </div>
+
+        <!-- Input Logo Perusahaan -->
+        <div class="form-group" style="margin-bottom:0">
+          <label for="logoInput">Upload Logo Toko/Perusahaan (.png)</label>
+          <input type="file" id="logoInput" accept="image/*" class="form-control">
         </div>
       </section>
 
@@ -229,43 +235,10 @@
     <img id="modalImg" src="" alt="Foto Aktivitas">
   </div>
 
-  <!-- Input Logo Dinamis di UI Header -->
-<div class="form-group" style="margin-top:10px;">
-  <label for="logoInput">Upload Logo Toko/Perusahaan (.png)</label>
-  <input type="file" id="logoInput" accept="image/*" class="form-control">
-</div>
-
 <script>
+  // URL Web App Google Apps Script Kamu
+  const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxy1ei1Ohp7nf0u09cTvgtODuTrYVaDp_4X4wljhaxhc9ca3q-OQkZUocZpVd3othxt/exec";
 
-  // URL Web App dari Google Apps Script langkah di atas
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxy1ei1Ohp7nf0u09cTvgtODuTrYVaDp_4X4wljhaxhc9ca3q-OQkZUocZpVd3othxt/exec";
-
-async function uploadToGoogleDrive(logItem) {
-  // Olah gambar ber-watermark terlebih dahulu
-  const watermarkedBase64 = await composeWatermark(logItem);
-
-  const payload = {
-    fileName: `LOG_${logItem.type.replace(/\s+/g, '_')}_${Date.now()}.jpg`,
-    mimeType: "image/jpeg",
-    fileData: watermarkedBase64
-  };
-
-  try {
-    // Kirim file ke Google Drive via GAS
-    const response = await fetch(GAS_WEB_APP_URL, {
-      method: "POST",
-      body: JSON.stringify(payload)
-    });
-    
-    const resData = await response.json();
-    if(resData.result === "success") {
-      logItem.driveUrl = resData.fileUrl; // Simpan link Drive ke data log
-      console.log("Berhasil terunggah ke Drive:", resData.fileUrl);
-    }
-  } catch (err) {
-    console.error("Gagal upload ke Drive, tersimpan di lokal HP terlebih dahulu:", err);
-  }
-}
   // State Application
   const video = document.getElementById('camera');
   const canvas = document.getElementById('canvas');
@@ -275,6 +248,21 @@ async function uploadToGoogleDrive(logItem) {
   let usingFrontCamera = false;
   let currentPos = null;
   let currentAddress = 'Mendapatkan lokasi…';
+  let customLogoImg = null;
+
+  // --- LOGO HANDLER ---
+  document.getElementById('logoInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const img = new Image();
+        img.onload = () => { customLogoImg = img; alert('Logo berhasil dimuat untuk Watermark!'); };
+        img.src = evt.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+  });
 
   // --- KAMERA CONTROL ---
   function startCamera(facing){
@@ -307,18 +295,17 @@ async function uploadToGoogleDrive(logItem) {
   });
 
   document.getElementById('toggleCamBtn').addEventListener('click', () => {
-    if(isCameraOn) { stopCamera(); alert('Kamera dimatikan untuk hemat baterai.'); }
+    if(isCameraOn) { stopCamera(); alert('Kamera dimatikan.'); }
     else { startCamera(usingFrontCamera ? 'user' : 'environment'); }
   });
 
   // --- FORM LOGIC ---
   function setQuickTag(text, category){
-  document.getElementById('actNote').value = text;
-  if(category) {
-    document.getElementById('actType').value = category;
+    document.getElementById('actNote').value = text;
+    if(category) { document.getElementById('actType').value = category; }
+    updateLiveOverlay();
   }
-  updateLiveOverlay();
-}
+
   function updateLiveOverlay(){
     const type = document.getElementById('actType').value;
     const note = document.getElementById('actNote').value;
@@ -342,7 +329,6 @@ async function uploadToGoogleDrive(logItem) {
       const lon = pos.coords.longitude.toFixed(6);
       currentPos = { lat, lon, accuracy: Math.round(pos.coords.accuracy) };
       
-      // Reverse Geocoding Sederhana (OpenStreetMap)
       fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18`, { headers:{'Accept-Language':'id'} })
         .then(res => res.json())
         .then(data => {
@@ -362,7 +348,7 @@ async function uploadToGoogleDrive(logItem) {
   function loadHistory(){ return JSON.parse(localStorage.getItem('activityLogs') || '[]'); }
   function saveHistory(data){ localStorage.setItem('activityLogs', JSON.stringify(data)); }
 
-  // --- WATERMARK & CAPTURE ---
+  // --- WATERMARK GENERATOR ---
   function composeWatermark(data){
     return new Promise(resolve => {
       const img = new Image();
@@ -386,12 +372,47 @@ async function uploadToGoogleDrive(logItem) {
         cx.fillText(`Lokasi: ${data.location}`, 16, c.height - barH + 82);
         cx.fillText(`Koordinat: ${data.coords ? `${data.coords.lat}, ${data.coords.lon}` : '-'}`, 16, c.height - barH + 104);
 
+        // Tempel Logo jika ada
+        if (customLogoImg) {
+          cx.drawImage(customLogoImg, c.width - 100, c.height - barH + 15, 80, 80);
+        }
+
         resolve(c.toDataURL('image/jpeg', 0.85));
       };
       img.src = data.image;
     });
   }
 
+  // --- GOOGLE DRIVE UPLOADER ---
+  async function uploadToGoogleDrive(logItem, index) {
+    const watermarkedBase64 = await composeWatermark(logItem);
+
+    const payload = {
+      fileName: `LOG_${logItem.type.replace(/\s+/g, '_')}_${Date.now()}.jpg`,
+      mimeType: "image/jpeg",
+      fileData: watermarkedBase64
+    };
+
+    try {
+      const response = await fetch(GAS_WEB_APP_URL, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      
+      const resData = await response.json();
+      if(resData.result === "success") {
+        const history = loadHistory();
+        history[index].driveUrl = resData.fileUrl;
+        saveHistory(history);
+        renderGallery();
+        console.log("Uploaded to Drive:", resData.fileUrl);
+      }
+    } catch (err) {
+      console.error("Upload Drive error:", err);
+    }
+  }
+
+  // --- CAPTURE SHUTTER ---
   document.getElementById('shutterBtn').addEventListener('click', () => {
     if (!isCameraOn || !video.videoWidth) { alert('Nyalakan kamera terlebih dahulu!'); return; }
 
@@ -405,15 +426,21 @@ async function uploadToGoogleDrive(logItem) {
       note: document.getElementById('actNote').value,
       location: currentAddress,
       coords: currentPos,
-      image: canvas.toDataURL('image/jpeg', 0.85)
+      image: canvas.toDataURL('image/jpeg', 0.85),
+      driveUrl: ''
     };
 
     const history = loadHistory();
     history.push(logItem);
     saveHistory(history);
+    const newIdx = history.length - 1;
+    
     renderGallery();
     
-    // Clear input
+    // Otomatis Upload ke Drive
+    uploadToGoogleDrive(logItem, newIdx);
+
+    // Reset Form Input
     document.getElementById('actNote').value = '';
     updateLiveOverlay();
   });
@@ -434,8 +461,12 @@ async function uploadToGoogleDrive(logItem) {
       const idx = history.length - 1 - revIdx;
       const item = document.createElement('div');
       item.className = 'gallery-item';
+      
+      const driveIcon = data.driveUrl ? '<span style="position:absolute;top:4px;left:4px;font-size:10px;background:rgba(0,0,0,0.6);padding:2px 4px;border-radius:3px;">☁️</span>' : '';
+
       item.innerHTML = `
         <img src="${data.image}">
+        ${driveIcon}
         <span class="type-badge">${data.type}</span>
         <button class="del" onclick="deleteLog(${idx})">✕</button>
       `;
@@ -460,15 +491,15 @@ async function uploadToGoogleDrive(logItem) {
   });
   document.getElementById('modal').addEventListener('click', () => document.getElementById('modal').classList.remove('open'));
 
-  // --- EKSPOR DATA ---
+  // --- EKSPOR EXCEL & PDF ---
   document.getElementById('excelBtn').addEventListener('click', () => {
     const history = loadHistory();
     if (!history.length) return alert('Tidak ada log untuk diekspor!');
 
-    let csv = 'No,Tanggal,Jam,Kategori,Detail Activity,Lokasi,Latitude,Longitude\n';
+    let csv = 'No,Tanggal,Jam,Kategori,Detail Activity,Lokasi,Latitude,Longitude,Link Google Drive\n';
     history.forEach((d, i) => {
       const dt = new Date(d.timestamp);
-      csv += `${i+1},${dt.toLocaleDateString('id-ID')},${dt.toLocaleTimeString('id-ID')},"${d.type}","${d.note || '-'}","${d.location.replace(/,/g,' ')}",${d.coords?.lat||''},${d.coords?.lon||''}\n`;
+      csv += `${i+1},${dt.toLocaleDateString('id-ID')},${dt.toLocaleTimeString('id-ID')},"${d.type}","${d.note || '-'}","${d.location.replace(/,/g,' ')}",${d.coords?.lat||''},${d.coords?.lon||''},"${d.driveUrl || 'Belum terunggah'}"\n`;
     });
 
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -494,7 +525,8 @@ async function uploadToGoogleDrive(logItem) {
           <h3>#${i+1} [${d.type}] ${d.note || ''}</h3>
           <img src="${wm}"/><br>
           <small>Waktu: ${new Date(d.timestamp).toLocaleString('id-ID')}</small><br>
-          <small>Lokasi: ${d.location}</small>
+          <small>Lokasi: ${d.location}</small><br>
+          <small>Drive: ${d.driveUrl ? `<a href="${d.driveUrl}" target="_blank">Lihat di Cloud</a>` : '-'}</small>
         </div>
       `);
     }
@@ -504,28 +536,6 @@ async function uploadToGoogleDrive(logItem) {
   });
 
   renderGallery();
-
-  let customLogoImg = null;
-
-// Handler Input Gambar Logo
-document.getElementById('logoInput').addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const img = new Image();
-      img.onload = () => { customLogoImg = img; alert('Logo berhasil dimuat!'); };
-      img.src = evt.target.result;
-    };
-    reader.readAsDataURL(file);
-  }
-});
-
-// Dalam fungsi composeWatermark(), tambahkan gambar logo jika ada
-if (customLogoImg) {
-  // Tempel logo di pojok kanan atas watermark bar
-  cx.drawImage(customLogoImg, c.width - 100, c.height - 110, 80, 80);
-}
 </script>
 </body>
 </html>
