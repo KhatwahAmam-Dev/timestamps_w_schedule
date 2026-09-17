@@ -173,11 +173,11 @@
         <div class="form-group">
           <label>Pilihan Cepat Aktivitas Rutin</label>
           <div class="quick-tags">
-            <button class="tag-btn" onclick="setQuickTag('Membersihkan Area Sales')">🧹 Area Sales</button>
-            <button class="tag-btn" onclick="setQuickTag('Pemeriksaan Expired Date')">🏷️ Cek Expired</button>
-            <button class="tag-btn" onclick="setQuickTag('Memotong & Preparation Buah')">🍎 Potong Buah</button>
-            <button class="tag-btn" onclick="setQuickTag('Briefing Tim Pagi')">🗣️ Briefing</button>
-          </div>
+  <button class="tag-btn" onclick="setQuickTag('Membersihkan Area Sales', 'Aktivitas Rutin')">🧹 Area Sales</button>
+  <button class="tag-btn" onclick="setQuickTag('Pemeriksaan Expired Date', 'Aktivitas Rutin')">🏷️ Cek Expired</button>
+  <button class="tag-btn" onclick="setQuickTag('Briefing Tim Pagi', 'Aktivitas Rutin')">🗣️ Briefing</button>
+  <button class="tag-btn" onclick="setQuickTag('Meeting / Perjalanan Dinas', 'Tugas Luar / Meeting')">🚗 Tugas Luar</button>
+</div>
         </div>
 
         <div class="form-group" style="margin-bottom:0">
@@ -276,11 +276,13 @@
   });
 
   // --- FORM LOGIC ---
-  function setQuickTag(text){
-    document.getElementById('actNote').value = text;
-    updateLiveOverlay();
+  function setQuickTag(text, category){
+  document.getElementById('actNote').value = text;
+  if(category) {
+    document.getElementById('actType').value = category;
   }
-
+  updateLiveOverlay();
+}
   function updateLiveOverlay(){
     const type = document.getElementById('actType').value;
     const note = document.getElementById('actNote').value;
